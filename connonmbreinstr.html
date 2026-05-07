@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Juego de Instrumentos</title>
+
+<style>
+
+body{
+  margin:0;
+  padding:40px;
+  font-family:Arial, sans-serif;
+  text-align:center;
+  background: radial-gradient(circle at top, #1a1a2e, #0f0f1a);
+  color:white;
+  overflow-x:hidden;
+}
+
+#particles{
+  position:fixed;
+  top:0;
+  left:0;
+  width:100%;
+  height:100%;
+  z-index:0;
+}
+
+.caja{
+  position:relative;
+  z-index:2;
+  background:white;
+  color:#222;
+  max-width:1100px;
+  margin:auto;
+  padding:25px;
+  border-radius:18px;
+  box-shadow:0 10px 25px rgba(0,0,0,.35);
+}
+
+h1{
+  margin-top:0;
+}
+
+#panel{
+  display:flex;
+  justify-content:center;
+  gap:15px;
+  flex-wrap:wrap;
+  margin-bottom:20px;
+}
+
+#panel button{
+  padding:12px 20px;
+  border:none;
+  border-radius:10px;
+  cursor:pointer;
+  font-size:16px;
+  font-weight:bold;
+  color:white;
+}
+
+#btnStart{ background:#28a745; }
+#btnPausa{ background:#ff9800; }
+#btnReiniciar{ background:#e53935; }
+
+#respuestas{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:20px;
+}
+
+.opcion{
+  background:#2575fc;
+  border:none;
+  border-radius:12px;
+  padding:10px;
+  cursor:pointer;
+  color:white;
+  transition:.2s;
+}
+
+.opcion:hover{
+  transform:scale(1.03);
+  background:#1d5ed8;
+}
+
+.opcion img{
+  width:100%;
+  max-width:300px;
+  aspect-ratio:1/1;
+  object-fit:cover;
+  border-radius:8px;
+  background:#ddd;
+}
+
+.barra{
+  width:100%;
+  height:12px;
+  background:#ddd;
+  border-radius:8px;
+  overflow:hidden;
+  margin:15px 0;
+}
+
+#progreso{
+  width:100%;
+  height:100%;
+  background:#28a745;
+  transition:width 1s linear;
+}
+
+#resultado{
+  font-size:24px;
+  font-weight:bold;
+  min-height:30px;
+}
+
+@media(max-width:700px){
+
+  #respuestas{
+    grid-template-columns:1fr;
+  }
+
+}
+
+</style>
+</head>
+
+<body>
+
+<canvas id="particles"></canvas>
+
+<div class="caja">
+
+<h1>¿Qué instrumento es el que suena?</h1>
+
+<div id="panel">
+
+<button id="btnStart">
+🎮 Empezar
+</button>
+
+<button id="btnPausa">
+⏸️ Pausa
+</button>
+
+<button id="btnReiniciar">
+🔄 Reiniciar
+</button>
+
+</div>
+
+<p>
+⏱️ Tiempo:
+<span id="tiempo">15</span>s
+</p>
+
+<div class="barra">
+  <div id="progreso"></div>
+</div>
+
+<div id="respuestas"></div>
+
+<p id="resultado"></p>
+
+<audio id="audio"></audio>
+
+</div>
+
+<script>
+function sonidoCorrecto() {
+  const audio = new Audio("correcto.mp3");
+  audio.play()
+    .then(() => console.log("Sonido de acierto reproduciéndose"))
+    .catch(error => console.error("Error con el sonido de acierto:", error));
+}
+
+function sonidoError() {
+  const audio = new Audio("error.mp3");
+  audio.play()
+    .then(() => console.log("Sonido de error reproduciéndose"))
+    .catch(error => console.error("Error con el sonido de error:", error));
+}/* ===================================
+   MEZCLAR
+=================================== */
+
+function mezclar(array){
+
+  for(let i = array.length - 1; i > 0; i--){
+
+    const j = Math.floor(Math.random() * (i + 1));
+
+    [array[i], array[j]] =
+    [array[j], array[i]];
+  }
+
+  return array;
+}
+
+/* ===================================
+   DATOS
+=================================== */
+
+let juego = [
+   { audio: "castañuelas.mp3", opciones: [{ texto: "Triángulo", img: "triangulo.jpg" }, { texto: "Glockenspiel", img: "glockenspiel.jpg" }, { texto: "Castañuelas", img: "castañuelas.jpg" }, { texto: "Caja", img: "caja.jpg" }], correcta: 2 }, 
+{ audio: "glockenspiel.mp3", opciones: [{ texto: "Triángulo", img: "triangulo.jpg" }, { texto: "Glockenspiel", img: "glockenspiel.jpg" }, { texto: "Timbales sinfónicos", img: "timbalessinfonicos.jpg" }, { texto: "Caja", img: "caja.jpg" }], correcta: 1 }, 
+{ audio: "acordeon.mp3", opciones: [{ texto: "Acordeón", img: "acordeon.jpg" }, { texto: "Piano", img: "piano.jpg" }, { texto: "Órgano", img: "organo.jpg" }, { texto: "Celesta", img: "celesta.jpg" }], correcta: 0 },
+{ audio: "organo.mp3", opciones: [{ texto: "Marimba", img: "marimba.jpg" }, { texto: "Piano", img: "piano.jpg" }, { texto: "Órgano", img: "organo.jpg" }, { texto: "Celesta", img: "celesta.jpg" }], correcta: 2 },
+ { audio: "corno_ingles.mp3", opciones: [{ texto: "Contrafagot", img: "contrafagot.jpg" }, { texto: "Saxofón", img: "saxofon.jpg" }, { texto: "Corno inglés", img: "corno_ingles.jpg" }, { texto: "Tuba", img: "tuba.jpg" }], correcta: 2 },
+{ audio: "contrafagot.mp3", opciones: [{ texto: "Contrafagot", img: "contrafagot.jpg" }, { texto: "Saxofón", img: "saxofon.jpg" }, { texto: "Corno inglés", img: "corno_ingles.jpg" }, { texto: "Tuba", img: "tuba.jpg" }], correcta: 0 }, 
+{ audio: "timbalessinfonicos.mp3", opciones: [{ texto: "Triángulo", img: "triangulo.jpg" }, { texto: "Bombo", img: "bombo.jpg" }, { texto: "Timbales sinfónicos", img: "timbalessinfonicos.jpg" }, { texto: "Caja", img: "caja.jpg" }], correcta: 2 }, 
+ { audio: "bombo.mp3", opciones: [{ texto: "Triángulo", img: "triangulo.jpg" }, { texto: "Vibráfono", img: "vibrafono.jpg" }, { texto: "Gongs", img: "gongs.jpg" }, { texto: "Bombo", img: "bombo.jpg" }], correcta: 3 },    { audio: "celesta.mp3", opciones: [{ texto: "Triángulo", img: "triangulo.jpg" }, { texto: "Vibráfono", img: "vibrafono.jpg" }, { texto: "Gongs", img: "gongs.jpg" }, { texto: "Celesta", img: "celesta.jpg" }], correcta: 3 },
+ { audio: "gongs.mp3", opciones: [{ texto: "Triángulo", img: "triangulo.jpg" }, { texto: "Vibráfono", img: "vibrafono.jpg" }, { texto: "Gongs", img: "gongs.jpg" }, { texto: "Caja", img: "caja.jpg" }], correcta: 2 },
+ { audio: "Oboe.mp3", opciones: [{ texto: "Oboe", img: "oboe.jpg" }, { texto: "Guitarra", img: "guitarra.jpg" }, { texto: "Saxofón", img: "saxofon.jpg" }, { texto: "Clarinete", img: "clarinete.jpg" }], correcta: 0 },
+ { audio: "triangulo.mp3", opciones: [{ texto: "Caja", img: "caja.jpg" }, { texto: "campanas", img: "campanas.jpg" }, { texto: "Triángulo", img: "triangulo.jpg" }, { texto: "Marimba", img: "marimba.jpg" }], correcta: 2 },
+  { audio: "Saxofon.mp3", opciones: [{ texto: "Fagot", img: "fagot.jpg" }, { texto: "Trompa", img: "trompa.jpg" }, { texto: "Clarinete", img: "clarinete.jpg" }, { texto: "Saxofón", img: "saxofon.jpg" }], correcta: 3 },
+  { audio: "Fagot.mp3", opciones: [{ texto: "Clarinete", img: "clarinete.jpg" }, { texto: "Fagot", img: "fagot.jpg" }, { texto: "Trompa", img: "trompa.jpg" }, { texto: "Saxofón", img: "saxofon.jpg" }], correcta: 1 },
+  { audio: "Violin.mp3", opciones: [{ texto: "Arpa", img: "arpa.jpg" }, { texto: "Guitarra", img: "guitarra.jpg" }, { texto: "Saxofón", img: "saxofon.jpg" }, { texto: "Violín", img: "violin.jpg" }], correcta: 3 },
+  { audio: "Guitarra_clasica.mp3", opciones: [{ texto: "Violín", img: "violin.jpg" }, { texto: "Guitarra", img: "guitarra.jpg" }, { texto: "Arpa", img: "arpa.jpg" }, { texto: "Piano", img: "piano.jpg" }], correcta: 1 },
+  { audio: "arpa.mp3", opciones: [{ texto: "Piano", img: "piano.jpg" }, { texto: "Guitarra", img: "guitarra.jpg" }, { texto: "Xilófono", img: "xilofono.jpg" }, { texto: "Arpa", img: "Arpa.jpg" }], correcta: 3 },
+  { audio: "piano.mp3", opciones: [{ texto: "Piano", img: "piano.jpg" }, { texto: "Trompa", img: "trompa.jpg" }, { texto: "Fagot", img: "fagot.jpg" }, { texto: "Arpa", img: "Arpa.jpg" }], correcta: 0 },
+  { audio: "viola.mp3", opciones: [{ texto: "Contrabajo", img: "contrabajo.jpg" }, { texto: "Violonchelo", img: "cello.jpg" }, { texto: "Viola", img: "viola.jpg" }, { texto: "Arpa", img: "Arpa.jpg" }], correcta: 2 },
+  { audio: "trompa.mp3", opciones: [{ texto: "Saxofón", img: "saxofon.jpg" }, { texto: "Oboe", img: "oboe.jpg" }, { texto: "Clarinete", img: "clarinete.jpg" }, { texto: "Trompa", img: "trompa.jpg" }], correcta: 3 },
+  { audio: "contrabajo.mp3", opciones: [{ texto: "Contrabajo", img: "contrabajo.jpg" }, { texto: "Violín", img: "violin.jpg" }, { texto: "Viola", img: "viola.jpg" }, { texto: "Guitarra", img: "guitarra.jpg" }], correcta: 0 },
+  { audio: "caja.mp3", opciones: [{ texto: "Triángulo", img: "triangulo.jpg" }, { texto: "Bombo", img: "Bombo.jpg" }, { texto: "Vibráfono", img: "vibrafono.jpg" }, { texto: "Caja", img: "caja.jpg" }], correcta: 3 },
+  { audio: "xilofono.mp3", opciones: [{ texto: "Piano", img: "piano.jpg" }, { texto: "Guitarra", img: "guitarra.jpg" }, { texto: "Xilófono", img: "xilofono.jpg" }, { texto: "Trompa", img: "trompa.jpg" }], correcta: 2 },
+  { audio: "vibrafono.mp3", opciones: [{ texto: "Vibráfono", img: "vibrafono.jpg" }, { texto: "Triángulo", img: "triangulo.jpg" }, { texto: "Xilófono", img: "xilofono.jpg" }, { texto: "Caja", img: "caja.jpg" }], correcta: 0 },
+  { audio: "marimba.mp3", opciones: [{ texto: "marimba", img: "marimba.jpg" }, { texto: "Bombo", img: "Bombo.jpg" }, { texto: "Triángulo", img: "triangulo.jpg" }, { texto: "Caja", img: "caja.jpg" }], correcta: 0 },
+  { audio: "flauta.mp3", opciones: [{ texto: "Oboe", img: "oboe.jpg" }, { texto: "Flauta travesera", img: "flautatravesera.jpg" }, { texto: "Clarinete", img: "clarinete.jpg" }, { texto: "Trompa", img: "trompa.jpg" }], correcta: 1 },
+  { audio: "flautin.mp3", opciones: [{ texto: "Oboe", img: "oboe.jpg" }, { texto: "Flauta travesera", img: "flautatravesera.jpg" }, { texto: "Clarinete", img: "clarinete.jpg" }, { texto: "Flautín (Piccolo)", img: "flautin.jpg" }], correcta: 3 },
+  { audio: "trombon.mp3", opciones: [{ texto: "Oboe", img: "oboe.jpg" }, { texto: "Flauta travesera", img: "flautatravesera.jpg" }, { texto: "Trombón", img: "trombon.jpg" }, { texto: "Trompa", img: "trompa.jpg" }], correcta: 2 },
+  { audio: "cello.mp3", opciones: [{ texto: "Arpa", img: "arpa.jpg" }, { texto: "Violín", img: "violin.jpg" }, { texto: "Guitarra", img: "guitarra.jpg" }, { texto: "Violonchelo", img: "cello.jpg" }], correcta: 3 },
+  { audio: "clavicembalo.mp3", opciones: [{ texto: "Clavicémbalo", img: "clave.jpg" }, { texto: "Arpa", img: "arpa.jpg" }, { texto: "Guitarra", img: "guitarra.jpg" }, { texto: "Violonchelo", img: "cello.jpg" }], correcta: 0 },
+  { audio: "laud.mp3", opciones: [{ texto: "Arpa", img: "arpa.jpg" }, { texto: "Violín", img: "violin.jpg" }, { texto: "Guitarra", img: "guitarra.jpg" }, { texto: "Laúd", img: "laud.jpg" }], correcta: 3 }
+];
+
+/* ===================================
+   VARIABLES
+=================================== */
+
+let actual = 0;
+let puntos = 0;
+let tiempo = 15;
+let intervalo;
+let pausado = false;
+
+/* ===================================
+   ELEMENTOS
+=================================== */
+
+const btnStart =
+document.getElementById("btnStart");
+
+const btnPausa =
+document.getElementById("btnPausa");
+
+const btnReiniciar =
+document.getElementById("btnReiniciar");
+
+const audio =
+document.getElementById("audio");
+
+/* ===================================
+   START
+=================================== */
+
+btnStart.onclick = ()=>{
+
+  actual = 0;
+  puntos = 0;
+  pausado = false;
+
+  juego = mezclar(juego);
+
+  btnStart.style.display = "none";
+
+  cargarPregunta();
+};
+
+/* ===================================
+   CARGAR
+=================================== */
+
+function cargarPregunta(){
+
+  const p = juego[actual];
+
+  document.getElementById("resultado")
+  .innerText = "";
+
+  audio.pause();
+
+  audio.src = p.audio;
+
+  console.log("AUDIO:", p.audio);
+
+  audio.load();
+
+  audio.play()
+  .then(()=>{
+    console.log("Audio OK");
+  })
+  .catch(err=>{
+    console.log("Error audio:", err);
+  });
+
+  const cont =
+  document.getElementById("respuestas");
+
+  cont.innerHTML = "";
+
+  const correctaTexto =
+  p.opciones[p.correcta].texto;
+
+  const mezcladas =
+  mezclar([...p.opciones]);
+
+  p.correcta =
+  mezcladas.findIndex(
+    op => op.texto === correctaTexto
+  );
+
+  mezcladas.forEach((op,i)=>{
+
+    console.log("IMG:", op.img);
+
+    const btn =
+    document.createElement("button");
+
+    btn.className = "opcion";
+
+    btn.innerHTML = `
+      <img
+        src="${op.img}"
+        onerror="
+          this.src='https://via.placeholder.com/300x300?text=Sin+Imagen'
+        "
+      >
+      <br><br>
+      ${op.texto}
+    `;
+
+    btn.onclick = ()=> comprobar(i);
+
+    cont.appendChild(btn);
+  });
+
+  tiempo = 15;
+
+  actualizarTiempo();
+
+  clearInterval(intervalo);
+
+  intervalo = setInterval(()=>{
+
+    if(!pausado){
+
+      tiempo--;
+
+      actualizarTiempo();
+
+      if(tiempo <= 0){
+
+        clearInterval(intervalo);
+
+        comprobar(-1);
+      }
+    }
+
+  },1000);
+}
+
+/* ===================================
+   TIEMPO
+=================================== */
+
+function actualizarTiempo(){
+
+  document.getElementById("tiempo")
+  .innerText = tiempo;
+
+  document.getElementById("progreso")
+  .style.width =
+  (tiempo / 15) * 100 + "%";
+}
+
+/* ===================================
+   COMPROBAR
+=================================== */
+
+function comprobar(i){
+
+  clearInterval(intervalo);
+
+  const p = juego[actual];
+
+  if(i === p.correcta){
+
+    puntos++;
+
+    document.getElementById("resultado")
+    .style.color = "green";
+
+    document.getElementById("resultado")
+    .innerText = "✔ Correcto";
+
+    sonidoCorrecto();
+
+  }else{
+
+    document.getElementById("resultado")
+    .style.color = "red";
+
+    document.getElementById("resultado")
+    .innerText = "❌ Incorrecto";
+
+    sonidoError();
+  }
+
+  setTimeout(()=>{
+
+    actual++;
+
+    if(actual < juego.length){
+
+      cargarPregunta();
+
+    }else{
+
+      terminarJuego();
+    }
+
+  },1200);
+}
+
+/* ===================================
+   PAUSA
+=================================== */
+
+btnPausa.onclick = ()=>{
+
+  pausado = !pausado;
+
+  if(pausado){
+
+    btnPausa.innerText =
+    "▶️ Continuar";
+
+    audio.pause();
+
+  }else{
+
+    btnPausa.innerText =
+    "⏸️ Pausa";
+
+    audio.play()
+    .catch(err=>console.log(err));
+  }
+};
+
+/* ===================================
+   REINICIAR
+=================================== */
+
+btnReiniciar.onclick = ()=>{
+
+  clearInterval(intervalo);
+
+  audio.pause();
+
+  actual = 0;
+  puntos = 0;
+  tiempo = 15;
+
+  document.getElementById("respuestas")
+  .innerHTML = "";
+
+  document.getElementById("resultado")
+  .innerHTML = "";
+
+  btnStart.style.display = "inline-block";
+
+  actualizarTiempo();
+};
+
+/* ===================================
+   FINAL
+=================================== */
+
+function terminarJuego(){
+
+  document.querySelector(".caja")
+  .innerHTML = `
+
+    <h1>🎉 Juego terminado</h1>
+
+    <h2>
+      Puntuación:
+      ${puntos}/${juego.length}
+    </h2>
+
+    <button
+      onclick="location.reload()"
+      style="
+        padding:15px 25px;
+        border:none;
+        border-radius:10px;
+        background:#2575fc;
+        color:white;
+        font-size:18px;
+        cursor:pointer;
+      ">
+      🔄 Jugar otra vez
+    </button>
+  `;
+}
+
+/* ===================================
+   PARTÍCULAS
+=================================== */
+
+const canvas =
+document.getElementById("particles");
+
+const ctx =
+canvas.getContext("2d");
+
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+let particulas = [];
+
+for(let i=0;i<80;i++){
+
+  particulas.push({
+
+    x:Math.random()*canvas.width,
+
+    y:Math.random()*canvas.height,
+
+    r:Math.random()*3+1,
+
+    dx:(Math.random()-0.5),
+
+    dy:(Math.random()-0.5)
+  });
+}
+
+function animar(){
+
+  ctx.clearRect(
+    0,
+    0,
+    canvas.width,
+    canvas.height
+  );
+
+  particulas.forEach(p=>{
+
+    p.x += p.dx;
+    p.y += p.dy;
+
+    if(
+      p.x < 0 ||
+      p.x > canvas.width
+    ){
+      p.dx *= -1;
+    }
+
+    if(
+      p.y < 0 ||
+      p.y > canvas.height
+    ){
+      p.dy *= -1;
+    }
+
+    ctx.beginPath();
+
+    ctx.arc(
+      p.x,
+      p.y,
+      p.r,
+      0,
+      Math.PI * 2
+    );
+
+    ctx.fillStyle =
+    "rgba(255,255,255,0.6)";
+
+    ctx.fill();
+  });
+
+  requestAnimationFrame(animar);
+}
+
+animar();
+
+window.addEventListener("resize",()=>{
+
+  canvas.width = window.innerWidth;
+
+  canvas.height = window.innerHeight;
+});
+
+</script>
+
+</body>
+</html>
